@@ -168,23 +168,75 @@ void EQCurveComponent::paint(juce::Graphics& g)
     g.setColour(ZeroEQLookAndFeel::spectrumPost);
     g.strokePath(postPath, juce::PathStrokeType(1.4f));
 
-    // --- composite EQ curve ---
+    // --- composite EQ curve(s) ---
     auto snapshots = EQEngine::readAllSnapshots(audioProcessor.apvts);
-    juce::Path curve;
+    const double curveSampleRate = sr > 0 ? sr : 44100.0;
     const int steps = juce::jmax(2, getWidth());
-    for (int i = 0; i <= steps; ++i)
-    {
-        const float x = (float) i / (float) steps * bounds.getWidth();
-        const float freq = xToFreq(x);
-        const float magnitude = EQEngine::getCompositeMagnitude(snapshots, freq, sr > 0 ? sr : 44100.0);
-        const float db = juce::Decibels::gainToDecibels(magnitude, -60.0f);
-        const float y = dbToY(juce::jlimit(minDb, maxDb, db));
 
-        if (i == 0)
-            curve.startNewSubPath(x, y);
-        else
-            curve.lineTo(x, y);
+    auto buildCurvePoints = [&](const std::array<EQEngine::BandSnapshot, numBands>& snaps) -> std::vector<juce::Point<float>>
+    {
+        std::vector<juce::Point<float>> points;
+        points.reserve((size_t) steps + 1);
+        for (int i = 0; i <= steps; ++i)
+        {
+            const float x = (float) i / (float) steps * bounds.getWidth();
+            const float freq = xToFreq(x);
+            const float magnitude = EQEngine::getCompositeMagnitude(snaps, freq, curveSampleRate);
+            const float db = juce::Decibels::gainToDecibels(magnitude, -60.0f);
+            points.push_back({ x, dbToY(juce::jlimit(minDb, maxDb, db)) });
+        }
+        return points;
+    };
+
+    auto pathFromPoints = [](const std::vector<juce::Point<float>>& points) -> juce::Path
+    {
+        juce::Path p;
+        for (size_t i = 0; i < points.size(); ++i)
+        {
+            if (i == 0) p.startNewSubPath(points[i]);
+            else p.lineTo(points[i]);
+        }
+        return p;
+    };
+
+    bool anyDynEngaged = false;
+    for (auto& s : snapshots)
+        if (s.dynActive && s.active && typeHasGain(s.type))
+            anyDynEngaged = true;
+
+    // Range envelope: for each engaged dynamic band, shade the full swing it could
+    // reach (static gain out to its Range limit, in its configured direction) so you
+    // can see the ceiling/floor even when the signal isn't currently pushing it there.
+    if (anyDynEngaged)
+    {
+        for (int i = 0; i < numBands; ++i)
+        {
+            const auto& s = snapshots[(size_t) i];
+            if (! (s.dynActive && s.active && typeHasGain(s.type)))
+                continue;
+
+            auto boundarySnaps = snapshots;
+            const float extreme = (s.dynDirection == DynamicDirection::Downward)
+                ? s.gainDb - s.dynRangeDb
+                : s.gainDb + s.dynRangeDb;
+            boundarySnaps[(size_t) i].gainDb = juce::jlimit(minDb, maxDb, extreme);
+
+            auto staticPoints = buildCurvePoints(snapshots);
+            auto boundaryPoints = buildCurvePoints(boundarySnaps);
+
+            juce::Path envelope;
+            envelope.startNewSubPath(staticPoints.front());
+            for (auto& pt : staticPoints) envelope.lineTo(pt);
+            for (auto it = boundaryPoints.rbegin(); it != boundaryPoints.rend(); ++it) envelope.lineTo(*it);
+            envelope.closeSubPath();
+
+            g.setColour(colourForBand(i).withAlpha(0.10f));
+            g.fillPath(envelope);
+        }
     }
+
+    auto staticPoints = buildCurvePoints(snapshots);
+    auto curve = pathFromPoints(staticPoints);
 
     juce::Path fillPath = curve;
     fillPath.lineTo(bounds.getWidth(), dbToY(0.0f));
@@ -193,8 +245,36 @@ void EQCurveComponent::paint(juce::Graphics& g)
     g.setColour(ZeroEQLookAndFeel::curveGreen.withAlpha(0.12f));
     g.fillPath(fillPath);
 
-    g.setColour(ZeroEQLookAndFeel::curveGreen);
+    g.setColour(ZeroEQLookAndFeel::curveGreen.withAlpha(anyDynEngaged ? 0.6f : 1.0f));
     g.strokePath(curve, juce::PathStrokeType(2.2f));
+
+    // Live curve: the actual instantaneous total gain (static + live dynamic delta),
+    // redrawn every frame - this is what visibly "breathes" as the dynamic bands react
+    // to the incoming signal, on top of the static curve underneath it.
+    if (anyDynEngaged)
+    {
+        auto liveSnapshots = snapshots;
+        for (int i = 0; i < numBands; ++i)
+        {
+            auto& s = liveSnapshots[(size_t) i];
+            if (s.dynActive && s.active && typeHasGain(s.type))
+                s.gainDb = juce::jlimit(minDb, maxDb, s.gainDb + audioProcessor.getEQEngine().getBandDynamicGainDeltaDb(i));
+        }
+
+        auto livePoints = buildCurvePoints(liveSnapshots);
+        auto liveCurve = pathFromPoints(livePoints);
+
+        juce::Path deviationFill;
+        deviationFill.startNewSubPath(staticPoints.front());
+        for (auto& pt : staticPoints) deviationFill.lineTo(pt);
+        for (auto it = livePoints.rbegin(); it != livePoints.rend(); ++it) deviationFill.lineTo(*it);
+        deviationFill.closeSubPath();
+        g.setColour(ZeroEQLookAndFeel::accentOrange.withAlpha(0.22f));
+        g.fillPath(deviationFill);
+
+        g.setColour(ZeroEQLookAndFeel::accentOrange);
+        g.strokePath(liveCurve, juce::PathStrokeType(2.4f));
+    }
 
     // --- per-band nodes ---
     for (int i = 0; i < numBands; ++i)
@@ -214,19 +294,13 @@ void EQCurveComponent::paint(juce::Graphics& g)
         const bool dynEngaged = s.dynActive && s.active && typeHasGain(s.type);
         if (dynEngaged)
         {
-            // Ring marks the band as dynamic; the live tick shows this instant's
-            // actual modulated gain on top of the static curve position.
-            g.setColour(ZeroEQLookAndFeel::accentOrange.withAlpha(0.8f));
-            g.drawEllipse(nx - radius - 4.0f, ny - radius - 4.0f, (radius + 4.0f) * 2.0f, (radius + 4.0f) * 2.0f, 1.5f);
-
+            // Ring intensity tracks how hard this band is currently working, so a band
+            // sitting idle (no gain reduction/boost right now) reads as a faint outline
+            // while one actively ducking/boosting glows brighter.
             const float liveDelta = audioProcessor.getEQEngine().getBandDynamicGainDeltaDb(i);
-            if (std::abs(liveDelta) > 0.05f)
-            {
-                const float liveY = dbToY(juce::jlimit(minDb, maxDb, s.gainDb + liveDelta));
-                g.setColour(ZeroEQLookAndFeel::accentOrange);
-                g.drawLine(nx, ny, nx, liveY, 2.5f);
-                g.fillEllipse(nx - 3.0f, liveY - 3.0f, 6.0f, 6.0f);
-            }
+            const float engagement = juce::jlimit(0.0f, 1.0f, std::abs(liveDelta) / juce::jmax(0.1f, s.dynRangeDb));
+            g.setColour(ZeroEQLookAndFeel::accentOrange.withAlpha(0.35f + 0.55f * engagement));
+            g.drawEllipse(nx - radius - 4.0f, ny - radius - 4.0f, (radius + 4.0f) * 2.0f, (radius + 4.0f) * 2.0f, 1.5f + 1.5f * engagement);
         }
 
         if (isSelected)

@@ -60,6 +60,24 @@ band's gain in real time. The Harmonic character's saturation stage runs immedia
 after that same band's linear filter, so it colors only what that band actually
 touches. Still just one pass through the chain, no lookahead anywhere.
 
+## Dynamic EQ visual feedback
+
+Dynamic bands get three layered visual cues on the main curve so you can read what's
+actually happening without opening the band panel:
+
+- **Range envelope** — a soft shaded region showing the full swing a dynamic band could
+  reach (static gain out to its configured Range, in its Downward/Upward direction).
+  Purely a function of the band's own settings, so it's visible even on silence.
+- **Live curve** — a second curve, drawn on top of the static one, showing the actual
+  instantaneous total gain (static + live dynamic delta) across the whole spectrum. It
+  visibly moves in real time as the signal pushes each dynamic band's detector, with the
+  gap between it and the static curve filled in to make the current deviation obvious
+  at a glance.
+- **Node engagement glow** — each dynamic band's node ring brightens and thickens in
+  proportion to how hard it's currently working (current delta relative to its Range),
+  so an idle dynamic band reads as a faint outline and an actively-ducking/boosting one
+  visibly glows.
+
 ## Building
 
 Requires CMake 3.22+ and a C++20 compiler (Xcode Command Line Tools on macOS).
