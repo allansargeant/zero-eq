@@ -211,6 +211,24 @@ void EQCurveComponent::paint(juce::Graphics& g)
         if (! s.active)
             colour = colour.withAlpha(0.35f);
 
+        const bool dynEngaged = s.dynActive && s.active && typeHasGain(s.type);
+        if (dynEngaged)
+        {
+            // Ring marks the band as dynamic; the live tick shows this instant's
+            // actual modulated gain on top of the static curve position.
+            g.setColour(ZeroEQLookAndFeel::accentOrange.withAlpha(0.8f));
+            g.drawEllipse(nx - radius - 4.0f, ny - radius - 4.0f, (radius + 4.0f) * 2.0f, (radius + 4.0f) * 2.0f, 1.5f);
+
+            const float liveDelta = audioProcessor.getEQEngine().getBandDynamicGainDeltaDb(i);
+            if (std::abs(liveDelta) > 0.05f)
+            {
+                const float liveY = dbToY(juce::jlimit(minDb, maxDb, s.gainDb + liveDelta));
+                g.setColour(ZeroEQLookAndFeel::accentOrange);
+                g.drawLine(nx, ny, nx, liveY, 2.5f);
+                g.fillEllipse(nx - 3.0f, liveY - 3.0f, 6.0f, 6.0f);
+            }
+        }
+
         if (isSelected)
         {
             g.setColour(colour.withAlpha(0.3f));

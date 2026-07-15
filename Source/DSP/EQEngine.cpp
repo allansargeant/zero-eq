@@ -8,6 +8,8 @@ void EQEngine::prepare(const juce::dsp::ProcessSpec& spec)
     sampleRate = spec.sampleRate;
     for (auto& band : bands)
         band.prepare(spec);
+    for (auto& d : dynamicDetectors)
+        d.prepare(spec);
 
     for (auto& s : smoothed)
     {
@@ -23,6 +25,8 @@ void EQEngine::reset()
 {
     for (auto& band : bands)
         band.reset();
+    for (auto& d : dynamicDetectors)
+        d.reset();
     firstBlock = true;
 }
 
@@ -35,6 +39,9 @@ void EQEngine::updateAndProcess(juce::AudioBuffer<float>& buffer, juce::AudioPro
 
     const int numSamples = buffer.getNumSamples();
 
+    juce::dsp::AudioBlock<float> block(buffer);
+    juce::dsp::ProcessContextReplacing<float> context(block);
+
     for (int i = 0; i < numBands; ++i)
     {
         const auto type      = (FilterType) (int) apvts.getRawParameterValue(ParamIDs::bandType(i))->load();
@@ -45,6 +52,14 @@ void EQEngine::updateAndProcess(juce::AudioBuffer<float>& buffer, juce::AudioPro
         const auto slope     = (FilterSlope) (int) apvts.getRawParameterValue(ParamIDs::bandSlope(i))->load();
         const bool active    = apvts.getRawParameterValue(ParamIDs::bandActive(i))->load() > 0.5f;
         const bool solo      = apvts.getRawParameterValue(ParamIDs::bandSolo(i))->load() > 0.5f;
+
+        const bool dynActive        = apvts.getRawParameterValue(ParamIDs::bandDynActive(i))->load() > 0.5f;
+        const auto dynDirection     = (DynamicDirection) (int) apvts.getRawParameterValue(ParamIDs::bandDynDirection(i))->load();
+        const float dynThresholdDb  = apvts.getRawParameterValue(ParamIDs::bandDynThreshold(i))->load();
+        const float dynRatio        = apvts.getRawParameterValue(ParamIDs::bandDynRatio(i))->load();
+        const float dynAttackMs     = apvts.getRawParameterValue(ParamIDs::bandDynAttack(i))->load();
+        const float dynReleaseMs    = apvts.getRawParameterValue(ParamIDs::bandDynRelease(i))->load();
+        const float dynRangeDb      = apvts.getRawParameterValue(ParamIDs::bandDynRange(i))->load();
 
         auto& s = smoothed[(size_t) i];
         if (firstBlock)
@@ -71,15 +86,35 @@ void EQEngine::updateAndProcess(juce::AudioBuffer<float>& buffer, juce::AudioPro
         const float curQ    = s.q.getNextValue();
 
         bands[(size_t) i].isActive = active && (! anySolo || solo);
-        bands[(size_t) i].update(type, curFreq, curGain, curQ, character, slope);
+
+        float totalGain = curGain;
+        const bool dynEligible = dynActive && bands[(size_t) i].isActive && filterTypeHasGain(type);
+        if (dynEligible)
+        {
+            DynamicEQDetector::Params dp;
+            dp.direction   = dynDirection;
+            dp.thresholdDb = dynThresholdDb;
+            dp.ratio       = dynRatio;
+            dp.attackMs    = dynAttackMs;
+            dp.releaseMs   = dynReleaseMs;
+            dp.rangeDb     = dynRangeDb;
+
+            // Detection reads the buffer as it currently stands (i.e. after every
+            // earlier band in the series chain has already processed it, but before
+            // this band does) - no lookahead, so this adds zero latency.
+            const float delta = dynamicDetectors[(size_t) i].process(buffer, type, curFreq, curQ, dp);
+            totalGain += delta;
+        }
+        else
+        {
+            dynamicDetectors[(size_t) i].reset();
+        }
+
+        bands[(size_t) i].update(type, curFreq, totalGain, curQ, character, slope);
+        bands[(size_t) i].process(context);
     }
 
     firstBlock = false;
-
-    juce::dsp::AudioBlock<float> block(buffer);
-    juce::dsp::ProcessContextReplacing<float> context(block);
-    for (auto& band : bands)
-        band.process(context);
 }
 
 EQEngine::BandSnapshot EQEngine::readSnapshot(juce::AudioProcessorValueTreeState& apvts, int i)
@@ -93,6 +128,14 @@ EQEngine::BandSnapshot EQEngine::readSnapshot(juce::AudioProcessorValueTreeState
     s.slope     = (FilterSlope) (int) apvts.getRawParameterValue(ParamIDs::bandSlope(i))->load();
     s.active    = apvts.getRawParameterValue(ParamIDs::bandActive(i))->load() > 0.5f;
     s.solo      = apvts.getRawParameterValue(ParamIDs::bandSolo(i))->load() > 0.5f;
+
+    s.dynActive     = apvts.getRawParameterValue(ParamIDs::bandDynActive(i))->load() > 0.5f;
+    s.dynDirection  = (DynamicDirection) (int) apvts.getRawParameterValue(ParamIDs::bandDynDirection(i))->load();
+    s.dynThresholdDb = apvts.getRawParameterValue(ParamIDs::bandDynThreshold(i))->load();
+    s.dynRatio      = apvts.getRawParameterValue(ParamIDs::bandDynRatio(i))->load();
+    s.dynAttackMs   = apvts.getRawParameterValue(ParamIDs::bandDynAttack(i))->load();
+    s.dynReleaseMs  = apvts.getRawParameterValue(ParamIDs::bandDynRelease(i))->load();
+    s.dynRangeDb    = apvts.getRawParameterValue(ParamIDs::bandDynRange(i))->load();
     return s;
 }
 
@@ -122,6 +165,13 @@ float EQEngine::getCompositeMagnitude(const std::array<BandSnapshot, numBands>& 
     }
 
     return (float) magnitude;
+}
+
+float EQEngine::getBandDynamicGainDeltaDb(int bandIndex) const
+{
+    if (bandIndex < 0 || bandIndex >= numBands)
+        return 0.0f;
+    return dynamicDetectors[(size_t) bandIndex].getCurrentGainDeltaDb();
 }
 
 } // namespace ZeroEQ

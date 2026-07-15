@@ -43,6 +43,21 @@ enum class DetectorType
     numDetectors
 };
 
+enum class DynamicDirection
+{
+    Downward = 0,  // duck: gain reduces as the band's own signal rises above threshold
+    Upward,        // boost: gain increases as the band's own signal falls below threshold
+    numDirections
+};
+
+// Only gain-having filter types (Bell/shelf/tilt) can run in dynamic mode - HP/LP/
+// Notch/BandPass have no gain to modulate. Shared between the DSP detector and the GUI.
+inline bool filterTypeHasGain(FilterType type)
+{
+    return type == FilterType::Bell || type == FilterType::LowShelf
+        || type == FilterType::HighShelf || type == FilterType::TiltShelf;
+}
+
 inline juce::StringArray filterTypeNames()
 {
     return { "Bell", "Low Shelf", "High Shelf", "High Pass", "Low Pass", "Notch", "Band Pass", "Tilt Shelf" };
@@ -63,6 +78,11 @@ inline juce::StringArray detectorNames()
     return { "Peak", "RMS" };
 }
 
+inline juce::StringArray dynamicDirectionNames()
+{
+    return { "Downward", "Upward" };
+}
+
 namespace ParamIDs
 {
     inline juce::String bandType(int i)      { return "band" + juce::String(i) + "_type"; }
@@ -73,6 +93,14 @@ namespace ParamIDs
     inline juce::String bandSlope(int i)     { return "band" + juce::String(i) + "_slope"; }
     inline juce::String bandActive(int i)    { return "band" + juce::String(i) + "_active"; }
     inline juce::String bandSolo(int i)      { return "band" + juce::String(i) + "_solo"; }
+
+    inline juce::String bandDynActive(int i)    { return "band" + juce::String(i) + "_dyn_active"; }
+    inline juce::String bandDynDirection(int i) { return "band" + juce::String(i) + "_dyn_direction"; }
+    inline juce::String bandDynThreshold(int i) { return "band" + juce::String(i) + "_dyn_threshold"; }
+    inline juce::String bandDynRatio(int i)     { return "band" + juce::String(i) + "_dyn_ratio"; }
+    inline juce::String bandDynAttack(int i)    { return "band" + juce::String(i) + "_dyn_attack"; }
+    inline juce::String bandDynRelease(int i)   { return "band" + juce::String(i) + "_dyn_release"; }
+    inline juce::String bandDynRange(int i)     { return "band" + juce::String(i) + "_dyn_range"; }
 
     static const juce::String inputGain  = "input_gain";
     static const juce::String outputGain = "output_gain";
@@ -138,6 +166,38 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
 
         params.push_back(std::make_unique<juce::AudioParameterBool>(
             juce::ParameterID(ParamIDs::bandSolo(i), 1), "Band " + juce::String(i + 1) + " Solo", false));
+
+        params.push_back(std::make_unique<juce::AudioParameterBool>(
+            juce::ParameterID(ParamIDs::bandDynActive(i), 1), "Band " + juce::String(i + 1) + " Dyn Active", false));
+
+        params.push_back(std::make_unique<juce::AudioParameterChoice>(
+            juce::ParameterID(ParamIDs::bandDynDirection(i), 1), "Band " + juce::String(i + 1) + " Dyn Direction",
+            dynamicDirectionNames(), 0));
+
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID(ParamIDs::bandDynThreshold(i), 1), "Band " + juce::String(i + 1) + " Dyn Threshold",
+            juce::NormalisableRange<float>(-60.0f, 0.0f, 0.01f), -24.0f,
+            juce::AudioParameterFloatAttributes().withLabel("dB")));
+
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID(ParamIDs::bandDynRatio(i), 1), "Band " + juce::String(i + 1) + " Dyn Ratio",
+            juce::NormalisableRange<float>(1.0f, 20.0f, 0.01f, 0.5f), 2.0f,
+            juce::AudioParameterFloatAttributes().withLabel(":1")));
+
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID(ParamIDs::bandDynAttack(i), 1), "Band " + juce::String(i + 1) + " Dyn Attack",
+            juce::NormalisableRange<float>(0.1f, 200.0f, 0.01f, 0.3f), 10.0f,
+            juce::AudioParameterFloatAttributes().withLabel("ms")));
+
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID(ParamIDs::bandDynRelease(i), 1), "Band " + juce::String(i + 1) + " Dyn Release",
+            juce::NormalisableRange<float>(5.0f, 1000.0f, 0.01f, 0.3f), 100.0f,
+            juce::AudioParameterFloatAttributes().withLabel("ms")));
+
+        params.push_back(std::make_unique<juce::AudioParameterFloat>(
+            juce::ParameterID(ParamIDs::bandDynRange(i), 1), "Band " + juce::String(i + 1) + " Dyn Range",
+            juce::NormalisableRange<float>(0.0f, 24.0f, 0.01f), 12.0f,
+            juce::AudioParameterFloatAttributes().withLabel("dB")));
     }
 
     params.push_back(std::make_unique<juce::AudioParameterFloat>(

@@ -40,6 +40,7 @@ target_sources(ZeroEQ
         Source/PluginEditor.cpp
         Source/DSP/EQBand.cpp
         Source/DSP/EQEngine.cpp
+        Source/DSP/DynamicEQDetector.cpp
         Source/DSP/Compressor.cpp
         Source/DSP/SpectrumAnalyzer.cpp
         Source/GUI/EQCurveComponent.cpp

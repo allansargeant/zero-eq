@@ -21,8 +21,8 @@ ZeroEQAudioProcessorEditor::ZeroEQAudioProcessorEditor(ZeroEQAudioProcessor& p)
     };
 
     setResizable(true, true);
-    setResizeLimits(950, 680, 1700, 1100);
-    setSize(1150, 800);
+    setResizeLimits(950, 760, 1700, 1150);
+    setSize(1150, 900);
 }
 
 ZeroEQAudioProcessorEditor::~ZeroEQAudioProcessorEditor()
@@ -53,7 +53,7 @@ void ZeroEQAudioProcessorEditor::resized()
     ioPanel.setBounds(ioArea);
 
     area.reduce(0, 8);
-    auto curveArea = area.removeFromTop((int) ((float) area.getHeight() * 0.55f));
+    auto curveArea = area.removeFromTop((int) ((float) area.getHeight() * 0.48f));
     eqCurve.setBounds(curveArea.reduced(8, 0));
 
     auto bottomArea = area.reduced(8, 8);

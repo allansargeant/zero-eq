@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include "EQBand.h"
+#include "DynamicEQDetector.h"
 #include "../PluginParameters.h"
 
 namespace ZeroEQ
@@ -29,6 +30,14 @@ public:
         FilterSlope slope;
         bool active;
         bool solo;
+
+        bool dynActive;
+        DynamicDirection dynDirection;
+        float dynThresholdDb;
+        float dynRatio;
+        float dynAttackMs;
+        float dynReleaseMs;
+        float dynRangeDb;
     };
 
     static float getCompositeMagnitude(const std::array<BandSnapshot, numBands>& bands, double frequencyHz, double sampleRate);
@@ -37,8 +46,12 @@ public:
     static BandSnapshot readSnapshot(juce::AudioProcessorValueTreeState& apvts, int bandIndex);
     static std::array<BandSnapshot, numBands> readAllSnapshots(juce::AudioProcessorValueTreeState& apvts);
 
+    // Message-thread-safe: current live dynamic gain delta (dB) for GUI metering/curve display.
+    float getBandDynamicGainDeltaDb(int bandIndex) const;
+
 private:
     std::array<EQBand, numBands> bands;
+    std::array<DynamicEQDetector, numBands> dynamicDetectors;
 
     struct SmoothedBandParams
     {
