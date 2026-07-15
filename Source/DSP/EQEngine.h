@@ -38,6 +38,8 @@ public:
         float dynAttackMs;
         float dynReleaseMs;
         float dynRangeDb;
+
+        float harmonicBlend;
     };
 
     static float getCompositeMagnitude(const std::array<BandSnapshot, numBands>& bands, double frequencyHz, double sampleRate);

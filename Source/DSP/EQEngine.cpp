@@ -60,6 +60,7 @@ void EQEngine::updateAndProcess(juce::AudioBuffer<float>& buffer, juce::AudioPro
         const float dynAttackMs     = apvts.getRawParameterValue(ParamIDs::bandDynAttack(i))->load();
         const float dynReleaseMs    = apvts.getRawParameterValue(ParamIDs::bandDynRelease(i))->load();
         const float dynRangeDb      = apvts.getRawParameterValue(ParamIDs::bandDynRange(i))->load();
+        const float harmonicBlend   = apvts.getRawParameterValue(ParamIDs::bandHarmonicBlend(i))->load();
 
         auto& s = smoothed[(size_t) i];
         if (firstBlock)
@@ -110,7 +111,7 @@ void EQEngine::updateAndProcess(juce::AudioBuffer<float>& buffer, juce::AudioPro
             dynamicDetectors[(size_t) i].reset();
         }
 
-        bands[(size_t) i].update(type, curFreq, totalGain, curQ, character, slope);
+        bands[(size_t) i].update(type, curFreq, totalGain, curQ, character, slope, harmonicBlend);
         bands[(size_t) i].process(context);
     }
 
@@ -136,6 +137,7 @@ EQEngine::BandSnapshot EQEngine::readSnapshot(juce::AudioProcessorValueTreeState
     s.dynAttackMs   = apvts.getRawParameterValue(ParamIDs::bandDynAttack(i))->load();
     s.dynReleaseMs  = apvts.getRawParameterValue(ParamIDs::bandDynRelease(i))->load();
     s.dynRangeDb    = apvts.getRawParameterValue(ParamIDs::bandDynRange(i))->load();
+    s.harmonicBlend = apvts.getRawParameterValue(ParamIDs::bandHarmonicBlend(i))->load();
     return s;
 }
 

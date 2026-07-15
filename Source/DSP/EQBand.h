@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include "../PluginParameters.h"
+#include "HarmonicShaper.h"
 
 namespace ZeroEQ
 {
@@ -9,8 +10,9 @@ namespace ZeroEQ
 // A single EQ band: one or more cascaded minimum-phase biquads (zero added latency).
 // Handles the "Vintage" proportional-Q character (bandwidth widens with applied gain,
 // approximating the interactive behaviour of passive/console-style musical EQs such as
-// Cranborne Audio's Harmonic EQ) alongside a "Modern" independent-Q mode matching
-// textbook zero-latency parametric EQ behaviour.
+// Cranborne Audio's Harmonic EQ), the "Harmonic" character (Modern-style linear
+// response plus gain-driven even/odd harmonic saturation via HarmonicShaper), and a
+// "Modern" independent-Q mode matching textbook zero-latency parametric EQ behaviour.
 class EQBand
 {
 public:
@@ -22,7 +24,7 @@ public:
     void reset();
 
     void update(FilterType type, float freqHz, float gainDb, float q,
-                FilterCharacter character, FilterSlope slope);
+                FilterCharacter character, FilterSlope slope, float harmonicBlend);
 
     void process(const juce::dsp::ProcessContextReplacing<float>& context);
 
@@ -55,6 +57,11 @@ private:
     std::array<Duplicator, maxStages> stages;
     int activeStageCount = 1;
     double currentSampleRate = 44100.0;
+
+    std::vector<HarmonicShaper> harmonicShapers;
+    bool harmonicEnabled = false;
+    float harmonicDriveAmount = 0.0f;
+    float harmonicBlendAmount = 0.5f;
 };
 
 } // namespace ZeroEQ

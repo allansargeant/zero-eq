@@ -21,8 +21,8 @@ ZeroEQAudioProcessorEditor::ZeroEQAudioProcessorEditor(ZeroEQAudioProcessor& p)
     };
 
     setResizable(true, true);
-    setResizeLimits(950, 760, 1700, 1150);
-    setSize(1150, 900);
+    setResizeLimits(950, 800, 1700, 1200);
+    setSize(1150, 950);
 }
 
 ZeroEQAudioProcessorEditor::~ZeroEQAudioProcessorEditor()

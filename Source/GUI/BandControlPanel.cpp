@@ -30,6 +30,7 @@ BandControlPanel::BandControlPanel(ZeroEQAudioProcessor& processorToUse)
     setupLabel(dynAttackLabel, "Attack");
     setupLabel(dynReleaseLabel, "Release");
     setupLabel(dynRangeLabel, "Range");
+    setupLabel(harmonicBlendLabel, "Harmonic Blend (Even / Odd)");
 
     dynSectionLabel.setText("Dynamic EQ", juce::dontSendNotification);
     dynSectionLabel.setFont(juce::Font(juce::FontOptions(11.0f, juce::Font::bold)));
@@ -63,11 +64,16 @@ BandControlPanel::BandControlPanel(ZeroEQAudioProcessor& processorToUse)
         addAndMakeVisible(*s);
     }
 
+    harmonicBlendSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    harmonicBlendSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 44, 18);
+    addAndMakeVisible(harmonicBlendSlider);
+
     addAndMakeVisible(activeButton);
     addAndMakeVisible(soloButton);
     addAndMakeVisible(dynActiveButton);
 
     typeBox.onChange = [this] { updateControlAvailability(); };
+    characterBox.onChange = [this] { updateControlAvailability(); };
     dynActiveButton.onClick = [this] { updateControlAvailability(); };
 
     startTimerHz(30);
@@ -107,6 +113,7 @@ void BandControlPanel::rebuildAttachments()
     dynAttackAttachment.reset();
     dynReleaseAttachment.reset();
     dynRangeAttachment.reset();
+    harmonicBlendAttachment.reset();
 
     freqAttachment = std::make_unique<SliderAttachment>(apvts, ParamIDs::bandFreq(i), freqSlider);
     gainAttachment = std::make_unique<SliderAttachment>(apvts, ParamIDs::bandGain(i), gainSlider);
@@ -124,6 +131,8 @@ void BandControlPanel::rebuildAttachments()
     dynAttackAttachment = std::make_unique<SliderAttachment>(apvts, ParamIDs::bandDynAttack(i), dynAttackSlider);
     dynReleaseAttachment = std::make_unique<SliderAttachment>(apvts, ParamIDs::bandDynRelease(i), dynReleaseSlider);
     dynRangeAttachment = std::make_unique<SliderAttachment>(apvts, ParamIDs::bandDynRange(i), dynRangeSlider);
+
+    harmonicBlendAttachment = std::make_unique<SliderAttachment>(apvts, ParamIDs::bandHarmonicBlend(i), harmonicBlendSlider);
 }
 
 void BandControlPanel::updateControlAvailability()
@@ -150,6 +159,11 @@ void BandControlPanel::updateControlAvailability()
     for (auto* l : { &dynDirectionLabel, &dynThresholdLabel, &dynRatioLabel, &dynAttackLabel,
                       &dynReleaseLabel, &dynRangeLabel })
         l->setEnabled(dynControlsEnabled);
+
+    const auto character = (FilterCharacter) characterBox.getSelectedItemIndex();
+    const bool harmonicEnabled = (character == FilterCharacter::Harmonic) && showGain;
+    harmonicBlendSlider.setEnabled(harmonicEnabled);
+    harmonicBlendLabel.setEnabled(harmonicEnabled);
 }
 
 void BandControlPanel::timerCallback()
@@ -204,7 +218,12 @@ void BandControlPanel::resized()
     slopeLabel.setBounds(slopeArea.removeFromTop(14));
     slopeBox.setBounds(slopeArea.reduced(2, 0));
 
-    area.removeFromTop(10);
+    area.removeFromTop(6);
+    auto harmonicRow = area.removeFromTop(20);
+    harmonicBlendLabel.setBounds(harmonicRow.removeFromLeft(160));
+    harmonicBlendSlider.setBounds(harmonicRow.reduced(2, 0));
+
+    area.removeFromTop(6);
 
     auto placeKnob = [](juce::Rectangle<int> col, juce::Label& label, juce::Slider& slider, int knobDiameter)
     {

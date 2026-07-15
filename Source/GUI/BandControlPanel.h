@@ -42,6 +42,9 @@ private:
     juce::Slider dynThresholdSlider, dynRatioSlider, dynAttackSlider, dynReleaseSlider, dynRangeSlider;
     juce::Label dynDirectionLabel, dynThresholdLabel, dynRatioLabel, dynAttackLabel, dynReleaseLabel, dynRangeLabel;
 
+    juce::Label harmonicBlendLabel;
+    juce::Slider harmonicBlendSlider;
+
     using SliderAttachment = juce::AudioProcessorValueTreeState::SliderAttachment;
     using ComboAttachment = juce::AudioProcessorValueTreeState::ComboBoxAttachment;
     using ButtonAttachment = juce::AudioProcessorValueTreeState::ButtonAttachment;
@@ -54,6 +57,7 @@ private:
     std::unique_ptr<ComboAttachment> dynDirectionAttachment;
     std::unique_ptr<SliderAttachment> dynThresholdAttachment, dynRatioAttachment, dynAttackAttachment,
                                        dynReleaseAttachment, dynRangeAttachment;
+    std::unique_ptr<SliderAttachment> harmonicBlendAttachment;
 };
 
 } // namespace ZeroEQ

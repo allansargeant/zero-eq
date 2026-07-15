@@ -8,12 +8,16 @@ void EQBand::prepare(const juce::dsp::ProcessSpec& spec)
     currentSampleRate = spec.sampleRate;
     for (auto& stage : stages)
         stage.prepare(spec);
+
+    harmonicShapers.assign(juce::jmax((size_t) 1, (size_t) spec.numChannels), HarmonicShaper());
 }
 
 void EQBand::reset()
 {
     for (auto& stage : stages)
         stage.reset();
+    for (auto& shaper : harmonicShapers)
+        shaper.reset();
 }
 
 float EQBand::proportionalQ(float baseQ, float gainDb, FilterCharacter character)
@@ -88,7 +92,7 @@ std::vector<EQBand::Coeffs::Ptr> EQBand::design(FilterType type, float freqHz, f
 }
 
 void EQBand::update(FilterType type, float freqHz, float gainDb, float q,
-                     FilterCharacter character, FilterSlope slope)
+                     FilterCharacter character, FilterSlope slope, float harmonicBlend)
 {
     auto designed = design(type, freqHz, gainDb, q, character, slope, currentSampleRate);
     activeStageCount = juce::jmin((int) designed.size(), maxStages);
@@ -104,6 +108,12 @@ void EQBand::update(FilterType type, float freqHz, float gainDb, float q,
         else
             *stages[(size_t) i].state = *designed[(size_t) i];
     }
+
+    harmonicEnabled = (character == FilterCharacter::Harmonic) && filterTypeHasGain(type);
+    // Drive scales with how much gain the band is applying - a band left at 0dB stays
+    // essentially transparent even in Harmonic mode; up to +/-12dB reaches full drive.
+    harmonicDriveAmount = harmonicEnabled ? juce::jlimit(0.0f, 1.0f, std::abs(gainDb) / 12.0f) : 0.0f;
+    harmonicBlendAmount = harmonicBlend;
 }
 
 void EQBand::process(const juce::dsp::ProcessContextReplacing<float>& context)
@@ -113,6 +123,18 @@ void EQBand::process(const juce::dsp::ProcessContextReplacing<float>& context)
 
     for (int i = 0; i < activeStageCount; ++i)
         stages[(size_t) i].process(context);
+
+    if (harmonicEnabled && harmonicDriveAmount > 0.0f)
+    {
+        auto block = context.getOutputBlock();
+        const size_t numChannels = juce::jmin(block.getNumChannels(), harmonicShapers.size());
+        for (size_t ch = 0; ch < numChannels; ++ch)
+        {
+            auto* samples = block.getChannelPointer(ch);
+            for (size_t n = 0; n < block.getNumSamples(); ++n)
+                samples[n] = harmonicShapers[ch].processSample(samples[n], harmonicDriveAmount, harmonicBlendAmount);
+        }
+    }
 }
 
 float EQBand::getMagnitudeForFrequency(double frequencyHz) const
