@@ -25,8 +25,11 @@ A zero-added-latency parametric EQ + compressor VST3/AU plugin, built with JUCE.
 
 ## Signal chain
 
-```
-Input Gain -> [8-band EQ] -> Compressor -> Output Gain
+```mermaid
+flowchart LR
+    IN["Input Gain<br/>+ metering"] --> EQ["8-band EQ<br/>minimum-phase biquads"]
+    EQ --> COMP["Feed-forward compressor<br/>soft-knee, no lookahead"]
+    COMP --> OUT["Output Gain<br/>+ metering"]
 ```
 
 ## Building
@@ -55,8 +58,8 @@ open items below.
 
 ### Known limitations / next steps
 
-- No linear-phase mode (out of scope — zero latency was the explicit goal).
-- Gain-reduction and level meters are simple peak reads, not ballistics-accurate (e.g.
-  no true-peak or standardized VU/PPM response).
-- Not yet run through `pluginval` or loaded in a DAW — do that before relying on it live.
-- No preset/factory-bank system yet.
+- [ ] Run through `pluginval` and load in a real DAW host before relying on it live.
+- [ ] Add a preset / factory-bank system.
+- [ ] Ballistics-accurate metering (true-peak / standardized VU/PPM) — current meters are simple peak reads.
+- [ ] Add a GUI screenshot to this README.
+- No linear-phase mode — intentionally out of scope (zero latency was the explicit goal).
