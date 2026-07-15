@@ -93,7 +93,17 @@ void EQBand::update(FilterType type, float freqHz, float gainDb, float q,
     auto designed = design(type, freqHz, gainDb, q, character, slope, currentSampleRate);
     activeStageCount = juce::jmin((int) designed.size(), maxStages);
     for (int i = 0; i < activeStageCount; ++i)
-        stages[(size_t) i].state = designed[(size_t) i];
+    {
+        // Mutate the shared Coefficients object's contents in place rather than
+        // replacing the pointer: ProcessorDuplicator's per-channel Filters each hold
+        // their own reference to the coefficients captured at prepare() time, so
+        // reassigning stages[i].state here would only update the Duplicator's own
+        // bookkeeping field and never reach the actual per-channel filters.
+        if (stages[(size_t) i].state == nullptr)
+            stages[(size_t) i].state = designed[(size_t) i];
+        else
+            *stages[(size_t) i].state = *designed[(size_t) i];
+    }
 }
 
 void EQBand::process(const juce::dsp::ProcessContextReplacing<float>& context)
