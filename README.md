@@ -14,7 +14,7 @@ A zero-added-latency parametric EQ + compressor VST3/AU plugin, built with JUCE.
 - **Zero added latency** — every filter is minimum-phase IIR (biquads); no lookahead,
   no linear-phase FFT convolution, no internal buffering beyond the host's block size.
   Safe to track through in a live/monitoring signal chain.
-- **Pro-Q-style workflow** — draggable per-band nodes over a live pre/post spectrum
+- **Node-based curve workflow** — draggable per-band nodes over a live pre/post spectrum
   analyzer. Drag = frequency/gain, scroll = Q, double-click = add/toggle a band.
 - **Musical "Vintage" character mode** — an optional proportional-Q behaviour per band
   (bandwidth widens as you push more gain), approximating the interactive feel of
@@ -22,6 +22,21 @@ A zero-added-latency parametric EQ + compressor VST3/AU plugin, built with JUCE.
   approximation of that *behaviour*, not a circuit model or clone of any specific product.
 - **Input/output trim** with metering, plus a post-EQ feed-forward compressor
   (soft-knee, peak/RMS detection, no lookahead — also zero added latency).
+
+## Roadmap
+
+The two biggest drivers of where this project goes next:
+
+- **Dynamic EQ bands** — give any band its own threshold/ratio/attack/release so it
+  behaves as a frequency-selective compressor/expander (gain reacts to the signal in
+  that band in real time, rather than sitting at a fixed static curve). This is the
+  headline feature for the next phase.
+- **Harmonic-based EQ** — a musical/character-driven EQ mode that shapes harmonic
+  content rather than just spectral tilt, extending the existing Modern/Vintage
+  proportional-Q character system with a genuinely harmonic-aware mode.
+
+Both need to land without compromising the zero-added-latency guarantee that's
+the whole point of this plugin.
 
 ## Signal chain
 

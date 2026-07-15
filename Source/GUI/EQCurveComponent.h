@@ -6,7 +6,7 @@
 namespace ZeroEQ
 {
 
-// The Pro-Q-style interactive area: live spectrum analyzer underneath a draggable
+// The main interactive area: live spectrum analyzer underneath a draggable
 // per-band curve. Drag a node to set frequency (X) and gain (Y); for gain-less bands
 // (HP/LP/notch/bandpass) vertical drag sets Q instead. Scroll wheel always adjusts Q.
 class EQCurveComponent : public juce::Component, private juce::Timer

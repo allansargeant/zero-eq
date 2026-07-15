@@ -10,7 +10,7 @@ namespace ZeroEQ
 // Handles the "Vintage" proportional-Q character (bandwidth widens with applied gain,
 // approximating the interactive behaviour of passive/console-style musical EQs such as
 // Cranborne Audio's Harmonic EQ) alongside a "Modern" independent-Q mode matching
-// textbook parametric behaviour (as in FabFilter Pro-Q's zero-latency/natural-phase mode).
+// textbook zero-latency parametric EQ behaviour.
 class EQBand
 {
 public:
