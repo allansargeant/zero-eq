@@ -1,0 +1,127 @@
+name: release
+
+# Build the Zero EQ plugin (VST3 + AU + Standalone) for Windows, macOS and
+# Linux (x64 + arm64). Plugins ship as zips (drop the bundle into your plugin
+# folder); Linux jobs also emit best-effort .deb/.rpm that install the VST3.
+# Trigger manually (Actions > release > Run workflow) or by pushing a v* tag.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux-x86_64,    os: ubuntu-latest,    cmake_arch: '',        pkgarch: amd64 }
+          - { name: linux-aarch64,   os: ubuntu-24.04-arm, cmake_arch: '',        pkgarch: arm64 }
+          - { name: windows-x86_64,  os: windows-latest,   cmake_arch: '-A x64'   }
+          - { name: windows-aarch64, os: windows-11-arm,   cmake_arch: '-A ARM64' }
+          - { name: macos-x86_64,    os: macos-13,         cmake_arch: '' }
+          - { name: macos-aarch64,   os: macos-14,         cmake_arch: '' }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux audio/GUI dev deps
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libasound2-dev libjack-jackd2-dev libx11-dev libxcomposite-dev \
+            libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev \
+            libxrender-dev libfreetype6-dev libfontconfig1-dev \
+            libglu1-mesa-dev libgtk-3-dev
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_arch }}
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Derive version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.1.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Collect plugin bundles
+        shell: bash
+        run: |
+          mkdir -p out
+          art="build/ZeroEQ_artefacts/Release"
+          # Copy whatever formats this platform produced (VST3 all, AU mac, Standalone all)
+          for fmt in VST3 AU Standalone; do
+            if [ -d "$art/$fmt" ]; then cp -R "$art/$fmt" "out/$fmt"; fi
+          done
+          ls -R out | head -40
+
+      - name: Archive (zip)
+        shell: bash
+        run: |
+          cd out
+          if command -v 7z >/dev/null 2>&1; then
+            7z a "../zero-eq-${{ matrix.name }}.zip" ./*
+          else
+            zip -r "../zero-eq-${{ matrix.name }}.zip" ./*
+          fi
+
+      - name: Package .deb/.rpm (Linux, best-effort)
+        if: startsWith(matrix.os, 'ubuntu')
+        shell: bash
+        env:
+          PKGARCH: ${{ matrix.pkgarch }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        continue-on-error: true
+        run: |
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.41.1
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          cat > nfpm.yaml <<EOF
+          name: zero-eq
+          arch: ${PKGARCH}
+          version: "${VERSION}"
+          maintainer: Allan Sargeant <allan.sargeant@gmail.com>
+          description: Zero-latency parametric EQ + compressor plugin (VST3)
+          license: GPL-3.0
+          contents:
+            - src: out/VST3/Zero EQ.vst3
+              dst: /usr/lib/vst3/Zero EQ.vst3
+              type: tree
+          EOF
+          nfpm package -f nfpm.yaml -p deb
+          nfpm package -f nfpm.yaml -p rpm
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zero-eq-${{ matrix.name }}
+          path: |
+            *.zip
+            *.deb
+            *.rpm
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
