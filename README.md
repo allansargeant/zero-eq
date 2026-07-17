@@ -185,6 +185,55 @@ signal, so nothing it does can add latency:
   nominally unity-gain stage isn't always bit-exact 1.0 after a normalized-parameter
   round-trip, so a razor-edge threshold can miss a genuinely full-scale sample).
 
+## Unsigned builds — macOS Gatekeeper & Windows SmartScreen
+
+The release plugins and standalone app are **not code-signed or notarized** —
+that needs paid Apple / Windows developer certificates this project doesn't
+carry. They're safe to run; the OS just can't verify a publisher. On macOS this
+matters more than usual: a quarantined plugin will make your DAW **skip it or
+fail validation** rather than show a friendly prompt.
+
+### macOS
+
+After copying the bundles into place, clear the quarantine flag:
+
+```sh
+xattr -dr com.apple.quarantine "$HOME/Library/Audio/Plug-Ins/VST3/Zero EQ.vst3"
+xattr -dr com.apple.quarantine "$HOME/Library/Audio/Plug-Ins/Components/Zero EQ.component"
+```
+
+(Use `/Library/...` instead of `$HOME/Library/...` if you installed them
+system-wide.) Then **rescan plugins** in your DAW. If the AU still won't appear,
+the Audio Unit cache may be stale — quit the host and run
+`killall -9 AudioComponentRegistrar`, or just reboot. For the **standalone** app:
+right-click → **Open** the first time, or
+`xattr -dr com.apple.quarantine "Zero EQ.app"`.
+
+### Windows
+
+Windows doesn't gate `.vst3` plugins the way it gates `.exe` files, so your DAW
+loads `Zero EQ.vst3` normally. The **standalone** `.exe` may trip SmartScreen —
+**More info → Run anyway**.
+
+### Linux
+
+No signing gate — copy `Zero EQ.vst3` into `~/.vst3/` and rescan.
+
+### Signing it yourself (optional)
+
+macOS ad-hoc signing stops the host from re-quarantining on your own machine
+(it is **not** notarization — it won't clear Gatekeeper on someone else's Mac):
+
+```sh
+codesign --force --deep --sign - "Zero EQ.vst3"
+codesign --force --deep --sign - "Zero EQ.component"
+```
+
+Distributing without warnings needs an **Apple Developer Program** membership
+($99/yr) + a *Developer ID Application* certificate — sign each bundle with the
+hardened runtime (`codesign --options runtime`) and notarize the containing
+`.zip`/`.dmg` with `xcrun notarytool`, then `xcrun stapler staple` the `.dmg`.
+
 ## Status
 
 Phase 6: DSP engine, dynamic EQ (with optional external sidechain detection),
