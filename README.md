@@ -39,6 +39,11 @@ A zero-added-latency parametric EQ + compressor VST3/AU plugin, built with JUCE.
   dynamic EQ, harmonic saturation, compressor-forward), plus save/load of your own
   presets to the standard per-user preset directory. Factory presets double as the
   plugin's VST3/AU host "program" list.
+- **Ballistics-accurate metering** — input/output meters combine a fast peak read,
+  a slower VU-style integrating level, a 4x-oversampled true-peak estimate that
+  catches inter-sample peaks a plain sample read would miss, and a held clip
+  indicator, all on a read-only side path that can't add latency to the signal
+  actually being processed.
 
 ## Roadmap
 
@@ -49,8 +54,11 @@ A zero-added-latency parametric EQ + compressor VST3/AU plugin, built with JUCE.
   even/odd harmonic saturation on top of the standard linear response, with a per-band
   blend control between the two harmonic families.
 - [x] **Preset system** — shipped. 7 factory presets plus user preset save/load.
+- [x] **Ballistics-accurate metering** — shipped. Peak, VU, true-peak-estimate, and
+  held clip indication on the input/output meters, replacing the earlier raw
+  peak-only reads.
 
-All three landed without compromising the zero-added-latency guarantee that's the
+All four landed without compromising the zero-added-latency guarantee that's the
 whole point of this plugin. Next up: whatever the next real driver of this project
 turns out to be — nothing currently queued.
 
@@ -145,22 +153,41 @@ the same save/restore path a host already uses for session recall, so there's no
 separate preset format to keep in sync. Factory presets also drive the plugin's
 VST3/AU "program" list, so a host's own program-switching UI works too.
 
+## Metering
+
+Input and output each get their own read-only `LevelMeter` instance sitting after
+that stage's gain trim — it reads a copy of the buffer and never touches the actual
+signal, so nothing it does can add latency:
+
+- **Peak** — instant attack, ~20dB/s exponential release. A fast-peak-meter
+  approximation, not a claim of matching a specific broadcast PPM's exact spec.
+- **VU** — a one-pole RMS-based integrator tuned for ~300ms to reach 99% of a step,
+  approximating classic VU ballistics (not a model of a real meter's needle physics).
+- **True peak** — a lightweight 4x-oversampled estimate using Catmull-Rom cubic
+  interpolation between samples, catching inter-sample peaks a plain sample-peak
+  read misses. A practical estimate, not a full ITU-R BS.1770-compliant filter.
+- **Clip indicator** — held for ~1.5s so a brief clip stays visible, triggered at a
+  small headroom margin below exact 0dBFS rather than an exact `>= 1.0` check (a
+  nominally unity-gain stage isn't always bit-exact 1.0 after a normalized-parameter
+  round-trip, so a razor-edge threshold can miss a genuinely full-scale sample).
+
 ## Status
 
-Phase 4: DSP engine, dynamic EQ, harmonic saturation, presets, and full interactive
-GUI (spectrum analyzer, draggable curve, preset bar, band/compressor/IO panels, live
-dynamic-gain indicators). Verified via `pluginval` (VST3 + AU, strictness 5, clean —
-zero warnings on both formats now that program/preset support is real), hosted
-successfully in REAPER, and checked against real audio through the actual shipped
-processor class — including an FFT check confirming the even/odd harmonic generators
-each produce exactly the harmonic content they're supposed to and nothing else, and a
-full sweep confirming every factory preset applies correctly, produces finite (no
-NaN) audio, and reports zero added latency. See open items below for what's still
-outstanding.
+Phase 5: DSP engine, dynamic EQ, harmonic saturation, presets, ballistics-accurate
+metering, and full interactive GUI (spectrum analyzer, draggable curve, preset bar,
+band/compressor/IO panels, live dynamic-gain indicators). Verified via `pluginval`
+(VST3 + AU, strictness 5, clean on both formats), hosted successfully in REAPER, and
+checked against real audio through the actual shipped processor class — including an
+FFT check confirming the even/odd harmonic generators each produce exactly the
+harmonic content they're supposed to and nothing else, a full sweep confirming every
+factory preset applies correctly, produces finite (no NaN) audio and reports zero
+added latency, and a metering pass confirming peak attack/release timing, VU
+ballistics, true-peak inter-sample detection, and clip-indicator hold time all match
+their intended behaviour on known test signals. See open items below for what's
+still outstanding.
 
 ### Known limitations / next steps
 
-- [ ] Ballistics-accurate metering (true-peak / standardized VU/PPM) — current meters are simple peak reads.
 - [ ] Dynamic EQ: no external sidechain input yet (internal detection only).
 - [ ] Not yet tested against real (non-silent) audio hardware in a live signal chain.
 - No linear-phase mode — intentionally out of scope (zero latency was the explicit goal).

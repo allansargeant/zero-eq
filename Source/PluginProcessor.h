@@ -6,6 +6,7 @@
 #include "DSP/EQEngine.h"
 #include "DSP/Compressor.h"
 #include "DSP/SpectrumAnalyzer.h"
+#include "DSP/LevelMeter.h"
 
 class ZeroEQAudioProcessor : public juce::AudioProcessor
 {
@@ -45,19 +46,23 @@ public:
     ZeroEQ::SpectrumAnalyzer& getPostSpectrum() { return postSpectrum; }
     ZeroEQ::PresetManager& getPresetManager() { return presetManager; }
 
-    float getInputLevelDb() const { return inputLevelDb.load(); }
-    float getOutputLevelDb() const { return outputLevelDb.load(); }
+    ZeroEQ::LevelMeter& getInputMeter() { return inputMeter; }
+    ZeroEQ::LevelMeter& getOutputMeter() { return outputMeter; }
+
+    // Retained for compatibility with existing GUI call sites; equivalent to
+    // getInputMeter().getPeakDb() / getOutputMeter().getPeakDb().
+    float getInputLevelDb() const { return inputMeter.getPeakDb(); }
+    float getOutputLevelDb() const { return outputMeter.getPeakDb(); }
 
 private:
     ZeroEQ::EQEngine eqEngine;
     ZeroEQ::Compressor compressor;
     ZeroEQ::SpectrumAnalyzer preSpectrum;
     ZeroEQ::SpectrumAnalyzer postSpectrum;
+    ZeroEQ::LevelMeter inputMeter;
+    ZeroEQ::LevelMeter outputMeter;
 
     int currentProgramIndex = 0;
-
-    std::atomic<float> inputLevelDb { -100.0f };
-    std::atomic<float> outputLevelDb { -100.0f };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ZeroEQAudioProcessor)
 };

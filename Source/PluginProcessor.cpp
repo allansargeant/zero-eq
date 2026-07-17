@@ -37,6 +37,8 @@ void ZeroEQAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
     compressor.prepare(spec);
     preSpectrum.prepare(sampleRate);
     postSpectrum.prepare(sampleRate);
+    inputMeter.prepare(sampleRate);
+    outputMeter.prepare(sampleRate);
 }
 
 void ZeroEQAudioProcessor::releaseResources()
@@ -66,7 +68,7 @@ void ZeroEQAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
     // --- Input gain + metering ---
     const float inputGainDb = apvts.getRawParameterValue(ZeroEQ::ParamIDs::inputGain)->load();
     buffer.applyGain(juce::Decibels::decibelsToGain(inputGainDb));
-    inputLevelDb.store(juce::Decibels::gainToDecibels(buffer.getMagnitude(0, numSamples), -100.0f));
+    inputMeter.process(buffer);
 
     preSpectrum.pushBuffer(buffer);
 
@@ -98,7 +100,7 @@ void ZeroEQAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::
     // --- Output gain + metering ---
     const float outputGainDb = apvts.getRawParameterValue(ZeroEQ::ParamIDs::outputGain)->load();
     buffer.applyGain(juce::Decibels::decibelsToGain(outputGainDb));
-    outputLevelDb.store(juce::Decibels::gainToDecibels(buffer.getMagnitude(0, numSamples), -100.0f));
+    outputMeter.process(buffer);
 
     postSpectrum.pushBuffer(buffer);
 }

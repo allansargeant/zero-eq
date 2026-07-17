@@ -16,6 +16,14 @@ IOPanel::IOPanel(ZeroEQAudioProcessor& processorToUse)
         addAndMakeVisible(*l);
     }
 
+    for (auto* l : { &inputPeakLabel, &outputPeakLabel })
+    {
+        l->setJustificationType(juce::Justification::centred);
+        l->setFont(juce::Font(juce::FontOptions(9.0f)));
+        l->setColour(juce::Label::textColourId, ZeroEQLookAndFeel::textDim);
+        addAndMakeVisible(*l);
+    }
+
     for (auto* s : { &inputSlider, &outputSlider })
     {
         s->setSliderStyle(juce::Slider::LinearVertical);
@@ -40,8 +48,19 @@ IOPanel::~IOPanel()
 
 void IOPanel::timerCallback()
 {
-    inputLevelDb = audioProcessor.getInputLevelDb();
-    outputLevelDb = audioProcessor.getOutputLevelDb();
+    auto& in = audioProcessor.getInputMeter();
+    inputReading = { in.getPeakDb(), in.getTruePeakDb(), in.getVuDb(), in.isClipping() };
+
+    auto& out = audioProcessor.getOutputMeter();
+    outputReading = { out.getPeakDb(), out.getTruePeakDb(), out.getVuDb(), out.isClipping() };
+
+    inputPeakLabel.setText(inputReading.peakDb <= -99.0f ? juce::String("-inf")
+                                                          : juce::String(inputReading.peakDb, 1),
+                            juce::dontSendNotification);
+    outputPeakLabel.setText(outputReading.peakDb <= -99.0f ? juce::String("-inf")
+                                                            : juce::String(outputReading.peakDb, 1),
+                             juce::dontSendNotification);
+
     repaint();
 }
 
@@ -58,20 +77,36 @@ void IOPanel::paint(juce::Graphics& g)
     g.setColour(ZeroEQLookAndFeel::gridLine);
     g.drawRoundedRectangle(getLocalBounds().toFloat().reduced(0.5f), 6.0f, 1.0f);
 
-    auto drawMeter = [&](juce::Rectangle<int> bounds, float db)
+    auto drawMeter = [&](juce::Rectangle<int> bounds, const MeterReading& reading)
     {
         auto meterBounds = bounds.toFloat();
         g.setColour(ZeroEQLookAndFeel::gridLine);
         g.fillRoundedRectangle(meterBounds, 2.0f);
 
-        const float proportion = dbToMeterProportion(db);
-        auto fillBounds = meterBounds.removeFromBottom(meterBounds.getHeight() * proportion);
-        g.setColour(db > -0.5f ? juce::Colours::red : ZeroEQLookAndFeel::curveGreen);
-        g.fillRoundedRectangle(fillBounds, 2.0f);
+        // VU body: slow-integrating "average loudness" fill.
+        const float vuProportion = dbToMeterProportion(reading.vuDb);
+        auto vuFillBounds = meterBounds.removeFromBottom(meterBounds.getHeight() * vuProportion);
+        g.setColour(ZeroEQLookAndFeel::curveGreen.withAlpha(0.75f));
+        g.fillRoundedRectangle(vuFillBounds, 2.0f);
+
+        // Fast peak tick riding on top of the VU body.
+        const float peakProportion = dbToMeterProportion(reading.peakDb);
+        const float peakY = bounds.getY() + bounds.getHeight() * (1.0f - peakProportion);
+        g.setColour(reading.peakDb > -0.1f ? juce::Colours::red : ZeroEQLookAndFeel::accentOrange);
+        g.fillRect(juce::Rectangle<float>((float) bounds.getX(), peakY - 1.0f, (float) bounds.getWidth(), 2.0f));
+
+        // Clip indicator: brief red cap at the very top of the meter.
+        if (reading.clipping)
+        {
+            g.setColour(juce::Colours::red);
+            g.fillRoundedRectangle(juce::Rectangle<float>((float) bounds.getX(), (float) bounds.getY(),
+                                                            (float) bounds.getWidth(), 3.0f),
+                                    1.0f);
+        }
     };
 
-    drawMeter(inputMeterBounds, inputLevelDb);
-    drawMeter(outputMeterBounds, outputLevelDb);
+    drawMeter(inputMeterBounds, inputReading);
+    drawMeter(outputMeterBounds, outputReading);
 }
 
 void IOPanel::resized()
@@ -89,6 +124,9 @@ void IOPanel::resized()
 
     inputLabel.setBounds(inputArea.removeFromTop(16));
     outputLabel.setBounds(outputArea.removeFromTop(16));
+
+    inputPeakLabel.setBounds(inputArea.removeFromBottom(14));
+    outputPeakLabel.setBounds(outputArea.removeFromBottom(14));
 
     inputMeterBounds = inputArea.removeFromRight(8).reduced(0, 4);
     outputMeterBounds = outputArea.removeFromRight(8).reduced(0, 4);

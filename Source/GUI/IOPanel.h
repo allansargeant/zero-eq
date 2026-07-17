@@ -6,7 +6,8 @@
 namespace ZeroEQ
 {
 
-// Input/output trim gain with live level meters, plus the master EQ bypass toggle.
+// Input/output trim gain with ballistics-accurate level meters (VU-style body fill,
+// fast peak tick, clip indicator), plus the master EQ bypass toggle.
 class IOPanel : public juce::Component, private juce::Timer
 {
 public:
@@ -23,11 +24,18 @@ private:
     ZeroEQAudioProcessor& audioProcessor;
 
     juce::Label inputLabel, outputLabel;
+    juce::Label inputPeakLabel, outputPeakLabel;
     juce::Slider inputSlider, outputSlider;
     juce::ToggleButton eqActiveButton { "EQ Active" };
 
-    float inputLevelDb = -100.0f;
-    float outputLevelDb = -100.0f;
+    struct MeterReading
+    {
+        float peakDb = -100.0f;
+        float truePeakDb = -100.0f;
+        float vuDb = -100.0f;
+        bool clipping = false;
+    };
+    MeterReading inputReading, outputReading;
 
     juce::Rectangle<int> inputMeterBounds, outputMeterBounds;
 
