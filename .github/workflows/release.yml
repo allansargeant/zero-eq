@@ -25,8 +25,8 @@ jobs:
           - { name: linux-aarch64,   os: ubuntu-24.04-arm, cmake_arch: '',        pkgarch: arm64 }
           - { name: windows-x86_64,  os: windows-latest,   cmake_arch: '-A x64'   }
           - { name: windows-aarch64, os: windows-11-arm,   cmake_arch: '-A ARM64' }
-          - { name: macos-x86_64,    os: macos-13,         cmake_arch: '' }
-          - { name: macos-aarch64,   os: macos-14,         cmake_arch: '' }
+          - { name: macos-x86_64,    os: macos-14,         cmake_arch: '-DCMAKE_OSX_ARCHITECTURES=x86_64' }
+          - { name: macos-aarch64,   os: macos-14,         cmake_arch: '-DCMAKE_OSX_ARCHITECTURES=arm64' }
     steps:
       - uses: actions/checkout@v4
 
