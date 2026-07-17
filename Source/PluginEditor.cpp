@@ -3,6 +3,7 @@
 ZeroEQAudioProcessorEditor::ZeroEQAudioProcessorEditor(ZeroEQAudioProcessor& p)
     : AudioProcessorEditor(&p),
       audioProcessor(p),
+      presetBar(p),
       ioPanel(p),
       eqCurve(p),
       bandControlPanel(p),
@@ -10,6 +11,7 @@ ZeroEQAudioProcessorEditor::ZeroEQAudioProcessorEditor(ZeroEQAudioProcessor& p)
 {
     setLookAndFeel(&lookAndFeel);
 
+    addAndMakeVisible(presetBar);
     addAndMakeVisible(ioPanel);
     addAndMakeVisible(eqCurve);
     addAndMakeVisible(bandControlPanel);
@@ -21,8 +23,8 @@ ZeroEQAudioProcessorEditor::ZeroEQAudioProcessorEditor(ZeroEQAudioProcessor& p)
     };
 
     setResizable(true, true);
-    setResizeLimits(950, 800, 1700, 1200);
-    setSize(1150, 950);
+    setResizeLimits(950, 830, 1700, 1230);
+    setSize(1150, 980);
 }
 
 ZeroEQAudioProcessorEditor::~ZeroEQAudioProcessorEditor()
@@ -48,6 +50,9 @@ void ZeroEQAudioProcessorEditor::resized()
 {
     auto area = getLocalBounds();
     area.removeFromTop(32); // title bar
+
+    auto presetBarArea = area.removeFromTop(30).reduced(8, 4);
+    presetBar.setBounds(presetBarArea);
 
     auto ioArea = area.removeFromLeft(110).reduced(8);
     ioPanel.setBounds(ioArea);

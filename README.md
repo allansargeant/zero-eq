@@ -35,6 +35,10 @@ A zero-added-latency parametric EQ + compressor VST3/AU plugin, built with JUCE.
   of any specific product.
 - **Input/output trim** with metering, plus a post-EQ feed-forward compressor
   (soft-knee, peak/RMS detection, no lookahead — also zero added latency).
+- **Presets** — 7 factory presets covering every feature area (static EQ shaping,
+  dynamic EQ, harmonic saturation, compressor-forward), plus save/load of your own
+  presets to the standard per-user preset directory. Factory presets double as the
+  plugin's VST3/AU host "program" list.
 
 ## Roadmap
 
@@ -44,10 +48,11 @@ A zero-added-latency parametric EQ + compressor VST3/AU plugin, built with JUCE.
 - [x] **Harmonic-based EQ** — shipped. A third per-band character that layers gain-driven
   even/odd harmonic saturation on top of the standard linear response, with a per-band
   blend control between the two harmonic families.
+- [x] **Preset system** — shipped. 7 factory presets plus user preset save/load.
 
-Both landed without compromising the zero-added-latency guarantee that's the whole
-point of this plugin. Next up: whatever the next real driver of this project turns out
-to be — nothing currently queued.
+All three landed without compromising the zero-added-latency guarantee that's the
+whole point of this plugin. Next up: whatever the next real driver of this project
+turns out to be — nothing currently queued.
 
 ## Signal chain
 
@@ -119,19 +124,42 @@ oversampling — the waveshaper's antiderivative is evaluated across the current
 previous sample instead of the raw function at the current sample, which suppresses
 aliasing from the nonlinearity without needing lookahead or extra latency.
 
+## Presets
+
+7 factory presets, each starting from a full reset-to-defaults so every parameter not
+mentioned below stays at its default:
+
+| Preset | Showcases |
+| --- | --- |
+| Init | Flat/default state, useful as a starting point or reference |
+| Vocal Presence | Static EQ shaping — low-mid cut, presence bump, air shelf |
+| De-Esser (Dynamic) | A single dynamic downward band tuned to catch sibilance |
+| Warm Bus (Harmonic) | Harmonic character on two bands (even-leaning low end, odd-leaning top) plus gentle bus compression |
+| Podcast Voice | HPF + presence + a dynamic band taming harshness + compressor, combined |
+| Broadcast Loudness | Compressor-forward: higher ratio, faster attack/release, auto makeup |
+| Telephone / Lo-Fi | Aggressive band-limiting + heavily-driven Harmonic character for creative use |
+
+User presets save to the standard per-user preset directory
+(`~/Library/Audio/Presets/Allan Sargeant/Zero EQ/` on macOS) as plain APVTS-state XML —
+the same save/restore path a host already uses for session recall, so there's no
+separate preset format to keep in sync. Factory presets also drive the plugin's
+VST3/AU "program" list, so a host's own program-switching UI works too.
+
 ## Status
 
-Phase 3: DSP engine, dynamic EQ, harmonic saturation, and full interactive GUI
-(spectrum analyzer, draggable curve, band/compressor/IO panels, live dynamic-gain
-indicators). Verified via `pluginval` (VST3 + AU, strictness 5, clean), hosted
+Phase 4: DSP engine, dynamic EQ, harmonic saturation, presets, and full interactive
+GUI (spectrum analyzer, draggable curve, preset bar, band/compressor/IO panels, live
+dynamic-gain indicators). Verified via `pluginval` (VST3 + AU, strictness 5, clean —
+zero warnings on both formats now that program/preset support is real), hosted
 successfully in REAPER, and checked against real audio through the actual shipped
 processor class — including an FFT check confirming the even/odd harmonic generators
-each produce exactly the harmonic content they're supposed to and nothing else. See
-open items below for what's still outstanding.
+each produce exactly the harmonic content they're supposed to and nothing else, and a
+full sweep confirming every factory preset applies correctly, produces finite (no
+NaN) audio, and reports zero added latency. See open items below for what's still
+outstanding.
 
 ### Known limitations / next steps
 
-- [ ] Add a preset / factory-bank system.
 - [ ] Ballistics-accurate metering (true-peak / standardized VU/PPM) — current meters are simple peak reads.
 - [ ] Dynamic EQ: no external sidechain input yet (internal detection only).
 - [ ] Not yet tested against real (non-silent) audio hardware in a live signal chain.

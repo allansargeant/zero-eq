@@ -5,8 +5,25 @@ ZeroEQAudioProcessor::ZeroEQAudioProcessor()
     : AudioProcessor(BusesProperties()
                           .withInput("Input", juce::AudioChannelSet::stereo(), true)
                           .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      apvts(*this, nullptr, "PARAMETERS", ZeroEQ::createParameterLayout())
+      apvts(*this, nullptr, "PARAMETERS", ZeroEQ::createParameterLayout()),
+      presetManager(apvts)
 {
+}
+
+void ZeroEQAudioProcessor::setCurrentProgram(int index)
+{
+    if (index < 0 || index >= getNumPrograms())
+        return;
+    presetManager.loadFactoryPreset(index);
+    currentProgramIndex = index;
+}
+
+const juce::String ZeroEQAudioProcessor::getProgramName(int index)
+{
+    const auto& presets = ZeroEQ::PresetManager::getFactoryPresets();
+    if (index < 0 || index >= (int) presets.size())
+        return {};
+    return presets[(size_t) index].name;
 }
 
 void ZeroEQAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)

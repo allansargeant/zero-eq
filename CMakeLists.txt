@@ -38,6 +38,7 @@ target_sources(ZeroEQ
     PRIVATE
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
+        Source/PresetManager.cpp
         Source/DSP/EQBand.cpp
         Source/DSP/EQEngine.cpp
         Source/DSP/DynamicEQDetector.cpp
@@ -48,6 +49,7 @@ target_sources(ZeroEQ
         Source/GUI/BandControlPanel.cpp
         Source/GUI/CompressorPanel.cpp
         Source/GUI/IOPanel.cpp
+        Source/GUI/PresetBar.cpp
         Source/GUI/ZeroEQLookAndFeel.cpp
 )
 

@@ -7,6 +7,7 @@
 #include "GUI/BandControlPanel.h"
 #include "GUI/CompressorPanel.h"
 #include "GUI/IOPanel.h"
+#include "GUI/PresetBar.h"
 
 class ZeroEQAudioProcessorEditor : public juce::AudioProcessorEditor
 {
@@ -22,6 +23,7 @@ private:
 
     ZeroEQ::ZeroEQLookAndFeel lookAndFeel;
 
+    ZeroEQ::PresetBar presetBar;
     ZeroEQ::IOPanel ioPanel;
     ZeroEQ::EQCurveComponent eqCurve;
     ZeroEQ::BandControlPanel bandControlPanel;

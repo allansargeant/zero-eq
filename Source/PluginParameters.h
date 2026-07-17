@@ -120,6 +120,46 @@ namespace ParamIDs
     static const juce::String compDetector  = "comp_detector";
 }
 
+// Every parameter ID this plugin registers, in the same order as createParameterLayout().
+// Used by the preset system for reset-to-default and applying named-value overrides
+// without needing to touch AudioProcessorValueTreeState internals.
+inline std::vector<juce::String> getAllParameterIDs()
+{
+    std::vector<juce::String> ids;
+    for (int i = 0; i < numBands; ++i)
+    {
+        ids.push_back(ParamIDs::bandType(i));
+        ids.push_back(ParamIDs::bandFreq(i));
+        ids.push_back(ParamIDs::bandGain(i));
+        ids.push_back(ParamIDs::bandQ(i));
+        ids.push_back(ParamIDs::bandCharacter(i));
+        ids.push_back(ParamIDs::bandSlope(i));
+        ids.push_back(ParamIDs::bandActive(i));
+        ids.push_back(ParamIDs::bandSolo(i));
+        ids.push_back(ParamIDs::bandDynActive(i));
+        ids.push_back(ParamIDs::bandDynDirection(i));
+        ids.push_back(ParamIDs::bandDynThreshold(i));
+        ids.push_back(ParamIDs::bandDynRatio(i));
+        ids.push_back(ParamIDs::bandDynAttack(i));
+        ids.push_back(ParamIDs::bandDynRelease(i));
+        ids.push_back(ParamIDs::bandDynRange(i));
+        ids.push_back(ParamIDs::bandHarmonicBlend(i));
+    }
+    ids.push_back(ParamIDs::inputGain);
+    ids.push_back(ParamIDs::outputGain);
+    ids.push_back(ParamIDs::eqActive);
+    ids.push_back(ParamIDs::compActive);
+    ids.push_back(ParamIDs::compThreshold);
+    ids.push_back(ParamIDs::compRatio);
+    ids.push_back(ParamIDs::compAttack);
+    ids.push_back(ParamIDs::compRelease);
+    ids.push_back(ParamIDs::compKnee);
+    ids.push_back(ParamIDs::compMakeup);
+    ids.push_back(ParamIDs::compAutoMakeup);
+    ids.push_back(ParamIDs::compDetector);
+    return ids;
+}
+
 inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
