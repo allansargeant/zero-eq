@@ -102,6 +102,7 @@ namespace ParamIDs
     inline juce::String bandDynAttack(int i)    { return "band" + juce::String(i) + "_dyn_attack"; }
     inline juce::String bandDynRelease(int i)   { return "band" + juce::String(i) + "_dyn_release"; }
     inline juce::String bandDynRange(int i)     { return "band" + juce::String(i) + "_dyn_range"; }
+    inline juce::String bandDynSidechain(int i) { return "band" + juce::String(i) + "_dyn_sidechain"; }
 
     inline juce::String bandHarmonicBlend(int i) { return "band" + juce::String(i) + "_harmonic_blend"; }
 
@@ -143,6 +144,7 @@ inline std::vector<juce::String> getAllParameterIDs()
         ids.push_back(ParamIDs::bandDynAttack(i));
         ids.push_back(ParamIDs::bandDynRelease(i));
         ids.push_back(ParamIDs::bandDynRange(i));
+        ids.push_back(ParamIDs::bandDynSidechain(i));
         ids.push_back(ParamIDs::bandHarmonicBlend(i));
     }
     ids.push_back(ParamIDs::inputGain);
@@ -241,6 +243,9 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
             juce::ParameterID(ParamIDs::bandDynRange(i), 1), "Band " + juce::String(i + 1) + " Dyn Range",
             juce::NormalisableRange<float>(0.0f, 24.0f, 0.01f), 12.0f,
             juce::AudioParameterFloatAttributes().withLabel("dB")));
+
+        params.push_back(std::make_unique<juce::AudioParameterBool>(
+            juce::ParameterID(ParamIDs::bandDynSidechain(i), 1), "Band " + juce::String(i + 1) + " Dyn Sidechain", false));
 
         params.push_back(std::make_unique<juce::AudioParameterFloat>(
             juce::ParameterID(ParamIDs::bandHarmonicBlend(i), 1), "Band " + juce::String(i + 1) + " Harmonic Blend",

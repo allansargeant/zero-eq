@@ -16,7 +16,11 @@ public:
     void prepare(const juce::dsp::ProcessSpec& spec);
     void reset();
 
-    void updateAndProcess(juce::AudioBuffer<float>& buffer, juce::AudioProcessorValueTreeState& apvts);
+    // `sidechainBuffer` may have 0 channels (host hasn't connected/enabled the
+    // sidechain bus) - any band with its sidechain toggle on falls back to detecting
+    // against `buffer` itself whenever that's the case.
+    void updateAndProcess(juce::AudioBuffer<float>& buffer, juce::AudioProcessorValueTreeState& apvts,
+                           const juce::AudioBuffer<float>& sidechainBuffer);
 
     // For GUI curve drawing: composite magnitude across all active bands at a frequency,
     // using a caller-supplied snapshot of parameter values (thread-safe, stateless).
@@ -38,6 +42,7 @@ public:
         float dynAttackMs;
         float dynReleaseMs;
         float dynRangeDb;
+        bool dynSidechain;
 
         float harmonicBlend;
     };

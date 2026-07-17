@@ -30,8 +30,11 @@ void EQEngine::reset()
     firstBlock = true;
 }
 
-void EQEngine::updateAndProcess(juce::AudioBuffer<float>& buffer, juce::AudioProcessorValueTreeState& apvts)
+void EQEngine::updateAndProcess(juce::AudioBuffer<float>& buffer, juce::AudioProcessorValueTreeState& apvts,
+                                 const juce::AudioBuffer<float>& sidechainBuffer)
 {
+    const bool sidechainConnected = sidechainBuffer.getNumChannels() > 0 && sidechainBuffer.getNumSamples() > 0;
+
     bool anySolo = false;
     for (int i = 0; i < numBands; ++i)
         if (apvts.getRawParameterValue(ParamIDs::bandSolo(i))->load() > 0.5f)
@@ -60,6 +63,7 @@ void EQEngine::updateAndProcess(juce::AudioBuffer<float>& buffer, juce::AudioPro
         const float dynAttackMs     = apvts.getRawParameterValue(ParamIDs::bandDynAttack(i))->load();
         const float dynReleaseMs    = apvts.getRawParameterValue(ParamIDs::bandDynRelease(i))->load();
         const float dynRangeDb      = apvts.getRawParameterValue(ParamIDs::bandDynRange(i))->load();
+        const bool dynSidechain     = apvts.getRawParameterValue(ParamIDs::bandDynSidechain(i))->load() > 0.5f;
         const float harmonicBlend   = apvts.getRawParameterValue(ParamIDs::bandHarmonicBlend(i))->load();
 
         auto& s = smoothed[(size_t) i];
@@ -100,10 +104,14 @@ void EQEngine::updateAndProcess(juce::AudioBuffer<float>& buffer, juce::AudioPro
             dp.releaseMs   = dynReleaseMs;
             dp.rangeDb     = dynRangeDb;
 
-            // Detection reads the buffer as it currently stands (i.e. after every
-            // earlier band in the series chain has already processed it, but before
-            // this band does) - no lookahead, so this adds zero latency.
-            const float delta = dynamicDetectors[(size_t) i].process(buffer, type, curFreq, curQ, dp);
+            // Detection normally reads the buffer as it currently stands (i.e. after
+            // every earlier band in the series chain has already processed it, but
+            // before this band does) - no lookahead, so this adds zero latency. If
+            // this band asks for external sidechain detection and the host has
+            // actually connected the sidechain bus, detect against that signal
+            // instead (still no lookahead - same block, just a different source).
+            const auto& detectionSource = (dynSidechain && sidechainConnected) ? sidechainBuffer : buffer;
+            const float delta = dynamicDetectors[(size_t) i].process(detectionSource, type, curFreq, curQ, dp);
             totalGain += delta;
         }
         else
@@ -137,6 +145,7 @@ EQEngine::BandSnapshot EQEngine::readSnapshot(juce::AudioProcessorValueTreeState
     s.dynAttackMs   = apvts.getRawParameterValue(ParamIDs::bandDynAttack(i))->load();
     s.dynReleaseMs  = apvts.getRawParameterValue(ParamIDs::bandDynRelease(i))->load();
     s.dynRangeDb    = apvts.getRawParameterValue(ParamIDs::bandDynRange(i))->load();
+    s.dynSidechain  = apvts.getRawParameterValue(ParamIDs::bandDynSidechain(i))->load() > 0.5f;
     s.harmonicBlend = apvts.getRawParameterValue(ParamIDs::bandHarmonicBlend(i))->load();
     return s;
 }

@@ -38,6 +38,7 @@ private:
 
     juce::Label dynSectionLabel;
     juce::ToggleButton dynActiveButton { "Dyn" };
+    juce::ToggleButton dynSidechainButton { "Sidechain" };
     juce::ComboBox dynDirectionBox;
     juce::Slider dynThresholdSlider, dynRatioSlider, dynAttackSlider, dynReleaseSlider, dynRangeSlider;
     juce::Label dynDirectionLabel, dynThresholdLabel, dynRatioLabel, dynAttackLabel, dynReleaseLabel, dynRangeLabel;
@@ -54,6 +55,7 @@ private:
     std::unique_ptr<ButtonAttachment> activeAttachment, soloAttachment;
 
     std::unique_ptr<ButtonAttachment> dynActiveAttachment;
+    std::unique_ptr<ButtonAttachment> dynSidechainAttachment;
     std::unique_ptr<ComboAttachment> dynDirectionAttachment;
     std::unique_ptr<SliderAttachment> dynThresholdAttachment, dynRatioAttachment, dynAttackAttachment,
                                        dynReleaseAttachment, dynRangeAttachment;

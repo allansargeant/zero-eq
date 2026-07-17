@@ -5,9 +5,10 @@
 > analytically (filter math checked against the RBJ/Butterworth cookbook formulas) and
 > against real audio (throwaway numeric test harnesses processing real signals through
 > the actual shipped processor class, not just static curve math — including FFT-verified
-> harmonic content for the saturation stage), `pluginval` passes clean on both VST3 and
-> AU, and it's been loaded and hosted successfully in REAPER. It has **not** been used on
-> real hardware in a live signal chain yet. Review before use on live gear.
+> harmonic content for the saturation stage), `pluginval` passes clean on VST3 and passes
+> on AU with one known benign warning (see Status), and it's been loaded and hosted
+> successfully in REAPER. It has **not** been used on real hardware in a live signal
+> chain yet. Review before use on live gear.
 
 A zero-added-latency parametric EQ + compressor VST3/AU plugin, built with JUCE.
 
@@ -26,7 +27,8 @@ A zero-added-latency parametric EQ + compressor VST3/AU plugin, built with JUCE.
   dynamic mode: it gets its own threshold/ratio/attack/release/range and behaves as a
   frequency-selective compressor (duck when that band gets loud) or expander (boost
   when that band gets quiet), instead of sitting at a fixed static gain. Detection runs
-  on the signal already in the chain — no lookahead, no added latency.
+  on the signal already in the chain by default — no lookahead, no added latency — or,
+  per band, on an external sidechain input instead.
 - **Three per-band characters** — Modern (independent Q, textbook response), Vintage
   (proportional Q that widens with applied gain, approximating passive/console-style
   musical EQs such as Cranborne Audio's Harmonic EQ), and Harmonic (adds gain-driven
@@ -48,8 +50,7 @@ A zero-added-latency parametric EQ + compressor VST3/AU plugin, built with JUCE.
 ## Roadmap
 
 - [x] **Dynamic EQ bands** — shipped. Per-band threshold/ratio/attack/release/range,
-  selectable Downward (duck) or Upward (boost) direction, internal detection only
-  (no external sidechain input yet).
+  selectable Downward (duck) or Upward (boost) direction.
 - [x] **Harmonic-based EQ** — shipped. A third per-band character that layers gain-driven
   even/odd harmonic saturation on top of the standard linear response, with a per-band
   blend control between the two harmonic families.
@@ -57,8 +58,11 @@ A zero-added-latency parametric EQ + compressor VST3/AU plugin, built with JUCE.
 - [x] **Ballistics-accurate metering** — shipped. Peak, VU, true-peak-estimate, and
   held clip indication on the input/output meters, replacing the earlier raw
   peak-only reads.
+- [x] **External sidechain input for dynamic EQ** — shipped. An optional stereo
+  sidechain bus, with a per-band toggle so any dynamic band can detect against that
+  external signal instead of the internal chain.
 
-All four landed without compromising the zero-added-latency guarantee that's the
+All five landed without compromising the zero-added-latency guarantee that's the
 whole point of this plugin. Next up: whatever the next real driver of this project
 turns out to be — nothing currently queued.
 
@@ -122,6 +126,16 @@ then envelope-follows that to drive the gain modulation. This is a practical
 approximation for isolating a band's spectral region, not a claim of matching any
 specific commercial dynamic EQ's exact detection algorithm.
 
+Each dynamic band also has its own **Sidechain** toggle: leave it off and the band
+detects against the signal already in the chain (the default); turn it on and it
+detects against the plugin's dedicated stereo sidechain input bus instead — useful
+for, say, ducking a bed track off a separate voice input. The toggle falls back to
+internal detection automatically (rather than detecting against silence) whenever
+the host hasn't actually connected the sidechain bus, and its label switches to
+"Sidechain (n/c)" in that case so it's obvious from the GUI. The sidechain bus adds
+no channels to, and never writes to, the main signal path — it's a read-only
+detection input, so it doesn't touch the zero-added-latency guarantee either.
+
 The **Harmonic** character blends between two waveshapers driven by how much gain the
 band is applying (a band left at 0dB stays transparent even in Harmonic mode): an
 asymmetric quadratic shaper that generates warm, tube-like even harmonics (plus a DC
@@ -173,21 +187,32 @@ signal, so nothing it does can add latency:
 
 ## Status
 
-Phase 5: DSP engine, dynamic EQ, harmonic saturation, presets, ballistics-accurate
-metering, and full interactive GUI (spectrum analyzer, draggable curve, preset bar,
-band/compressor/IO panels, live dynamic-gain indicators). Verified via `pluginval`
-(VST3 + AU, strictness 5, clean on both formats), hosted successfully in REAPER, and
-checked against real audio through the actual shipped processor class — including an
-FFT check confirming the even/odd harmonic generators each produce exactly the
-harmonic content they're supposed to and nothing else, a full sweep confirming every
-factory preset applies correctly, produces finite (no NaN) audio and reports zero
-added latency, and a metering pass confirming peak attack/release timing, VU
+Phase 6: DSP engine, dynamic EQ (with optional external sidechain detection),
+harmonic saturation, presets, ballistics-accurate metering, and full interactive GUI
+(spectrum analyzer, draggable curve, preset bar, band/compressor/IO panels, live
+dynamic-gain indicators). Verified via `pluginval` (VST3 + AU, strictness 5 — VST3
+clean; AU passes with one known benign warning, see below), hosted successfully in
+REAPER, and checked against real audio through the actual shipped processor class —
+including an FFT check confirming the even/odd harmonic generators each produce
+exactly the harmonic content they're supposed to and nothing else, a full sweep
+confirming every factory preset applies correctly, produces finite (no NaN) audio and
+reports zero added latency, a metering pass confirming peak attack/release timing, VU
 ballistics, true-peak inter-sample detection, and clip-indicator hold time all match
-their intended behaviour on known test signals. See open items below for what's
-still outstanding.
+their intended behaviour on known test signals, and a sidechain pass confirming a
+dynamic band tracks the external sidechain signal (not the internal one) when its
+toggle is on, tracks the internal signal steadily when it's off, and falls back to
+internal detection cleanly when sidechain audio isn't actually connected. See open
+items below for what's still outstanding.
+
+**Known benign AU warning**: `pluginval`'s "Disabling non-main buses" check fails on
+the AU build (Apple's own `auval` validator still passes with exit code 0, and every
+other check — including enabling all buses and restoring the default layout — passes
+clean). This is a documented JUCE/AudioUnit interaction: AUv2's bus-disable semantics
+for auxiliary/sidechain input buses don't round-trip the same way pluginval expects,
+independent of what the plugin itself does; it's a widely reported quirk for AU
+plugins with a sidechain bus, not a Zero EQ-specific bug.
 
 ### Known limitations / next steps
 
-- [ ] Dynamic EQ: no external sidechain input yet (internal detection only).
 - [ ] Not yet tested against real (non-silent) audio hardware in a live signal chain.
 - No linear-phase mode — intentionally out of scope (zero latency was the explicit goal).

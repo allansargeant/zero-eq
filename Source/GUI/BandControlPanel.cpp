@@ -71,6 +71,7 @@ BandControlPanel::BandControlPanel(ZeroEQAudioProcessor& processorToUse)
     addAndMakeVisible(activeButton);
     addAndMakeVisible(soloButton);
     addAndMakeVisible(dynActiveButton);
+    addAndMakeVisible(dynSidechainButton);
 
     typeBox.onChange = [this] { updateControlAvailability(); };
     characterBox.onChange = [this] { updateControlAvailability(); };
@@ -107,6 +108,7 @@ void BandControlPanel::rebuildAttachments()
     activeAttachment.reset();
     soloAttachment.reset();
     dynActiveAttachment.reset();
+    dynSidechainAttachment.reset();
     dynDirectionAttachment.reset();
     dynThresholdAttachment.reset();
     dynRatioAttachment.reset();
@@ -125,6 +127,7 @@ void BandControlPanel::rebuildAttachments()
     soloAttachment = std::make_unique<ButtonAttachment>(apvts, ParamIDs::bandSolo(i), soloButton);
 
     dynActiveAttachment = std::make_unique<ButtonAttachment>(apvts, ParamIDs::bandDynActive(i), dynActiveButton);
+    dynSidechainAttachment = std::make_unique<ButtonAttachment>(apvts, ParamIDs::bandDynSidechain(i), dynSidechainButton);
     dynDirectionAttachment = std::make_unique<ComboAttachment>(apvts, ParamIDs::bandDynDirection(i), dynDirectionBox);
     dynThresholdAttachment = std::make_unique<SliderAttachment>(apvts, ParamIDs::bandDynThreshold(i), dynThresholdSlider);
     dynRatioAttachment = std::make_unique<SliderAttachment>(apvts, ParamIDs::bandDynRatio(i), dynRatioSlider);
@@ -153,7 +156,8 @@ void BandControlPanel::updateControlAvailability()
     const bool dynControlsEnabled = dynAvailable && dynActiveButton.getToggleState();
     for (auto* c : { (juce::Component*) &dynDirectionBox, (juce::Component*) &dynThresholdSlider,
                       (juce::Component*) &dynRatioSlider, (juce::Component*) &dynAttackSlider,
-                      (juce::Component*) &dynReleaseSlider, (juce::Component*) &dynRangeSlider })
+                      (juce::Component*) &dynReleaseSlider, (juce::Component*) &dynRangeSlider,
+                      (juce::Component*) &dynSidechainButton })
         c->setEnabled(dynControlsEnabled);
 
     for (auto* l : { &dynDirectionLabel, &dynThresholdLabel, &dynRatioLabel, &dynAttackLabel,
@@ -174,6 +178,13 @@ void BandControlPanel::timerCallback()
         currentDynGainDeltaDb = delta;
         repaint();
     }
+
+    // Reflect whether the host has actually connected the sidechain bus, so a band
+    // left in sidechain mode with nothing feeding it doesn't look silently broken.
+    const bool connected = audioProcessor.isSidechainConnected();
+    const juce::String wantedText = connected ? "Sidechain" : "Sidechain (n/c)";
+    if (dynSidechainButton.getButtonText() != wantedText)
+        dynSidechainButton.setButtonText(wantedText);
 }
 
 void BandControlPanel::paint(juce::Graphics& g)
@@ -246,8 +257,10 @@ void BandControlPanel::resized()
 
     area.removeFromTop(4);
     auto dynDirRow = area.removeFromTop(38);
+    auto dynSidechainCol = dynDirRow.removeFromRight(100);
     dynDirectionLabel.setBounds(dynDirRow.removeFromTop(14));
     dynDirectionBox.setBounds(dynDirRow.reduced(2, 0));
+    dynSidechainButton.setBounds(dynSidechainCol.removeFromBottom(24).reduced(2, 0));
 
     area.removeFromTop(6);
     auto dynKnobRow = area;

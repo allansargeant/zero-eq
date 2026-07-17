@@ -49,6 +49,15 @@ public:
     ZeroEQ::LevelMeter& getInputMeter() { return inputMeter; }
     ZeroEQ::LevelMeter& getOutputMeter() { return outputMeter; }
 
+    // True when the host has enabled the sidechain input bus AND is actually feeding
+    // it channels. A dynamic band with its sidechain toggle on falls back to internal
+    // detection whenever this is false, rather than detecting against silence.
+    bool isSidechainConnected() const
+    {
+        auto* bus = getBus(true, 1);
+        return bus != nullptr && bus->isEnabled() && bus->getNumberOfChannels() > 0;
+    }
+
     // Retained for compatibility with existing GUI call sites; equivalent to
     // getInputMeter().getPeakDb() / getOutputMeter().getPeakDb().
     float getInputLevelDb() const { return inputMeter.getPeakDb(); }
