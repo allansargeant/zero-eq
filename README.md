@@ -11,6 +11,10 @@
 
 A zero-added-latency parametric EQ + compressor VST3/AU plugin, built with JUCE.
 
+![Zero EQ plugin GUI: an 8-band EQ curve with draggable per-band nodes over a spectrum display, input/output meters, a Band panel with type/character/slope, Harmonic Blend and a Dynamic EQ section, plus a feed-forward Compressor panel](docs/screenshots/plugin.png)
+
+*Real screenshot of the Standalone build.*
+
 ## Goals
 
 - **Zero added latency** — every filter is minimum-phase IIR (biquads); no lookahead,
@@ -129,7 +133,6 @@ open items below for what's still outstanding.
 
 - [ ] Add a preset / factory-bank system.
 - [ ] Ballistics-accurate metering (true-peak / standardized VU/PPM) — current meters are simple peak reads.
-- [ ] Add a GUI screenshot to this README.
 - [ ] Dynamic EQ: no external sidechain input yet (internal detection only).
 - [ ] Not yet tested against real (non-silent) audio hardware in a live signal chain.
 - No linear-phase mode — intentionally out of scope (zero latency was the explicit goal).
